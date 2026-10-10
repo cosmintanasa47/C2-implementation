@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+*.tar.gz
+.sites/
+.sites-runtime/
+dist/vendor/
+dist/maps/
+.cache/
+__pycache__/
+.env
