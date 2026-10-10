@@ -37,6 +37,8 @@ if(QT_VERSION_MAJOR GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         classes.h classes.cpp
+        json.hpp
+        json_communication.h
     )
 else()
     if(ANDROID)
