@@ -30,8 +30,9 @@ CREATE TABLE User_Engager (
 );
 GO
 
-CREATE TABLE Drone (
+CREATE TABLE Threat (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    threat_type VARCHAR(50) NOT NULL,
     latitude DECIMAL(9,6),
     longitude DECIMAL(9,6),
     height FLOAT,       -- metri
