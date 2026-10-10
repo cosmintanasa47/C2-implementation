@@ -10,7 +10,7 @@ public:
     explicit authentification_service(database_manager &database);
 
     bool login(const QString &username, const QString &password);
-    bool logout();
+    bool logout(bool mark_offline = true);
 
     bool is_authenticated() const;
 

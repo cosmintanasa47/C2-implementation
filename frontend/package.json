@@ -1,0 +1,29 @@
+{
+  "name": "edth-monitor-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Frontend demonstrativ pentru monitorizare multisenzor",
+  "scripts": {
+    "dev": "node server.mjs",
+    "prepare:cesium": "node scripts/prepare-cesium.mjs",
+    "prepare:brotli": "node scripts/prepare-brotli.mjs",
+    "prepare:xz": "node scripts/prepare-xz.mjs",
+    "prepare:romania": "python3 scripts/prepare-romania.py --download && node scripts/extract-places.mjs",
+    "prepare:terrain": "python3 scripts/prepare-terrain.py",
+    "prepare:activity": "node scripts/prepare-civil-activity.mjs",
+    "mock:backend": "node scripts/mock-backend.mjs",
+    "compress:romania": "node scripts/compress-romania.mjs --quality 9",
+    "compress:xz": "node scripts/recompress-romania-xz.mjs --merge-packs 2 --position-bits 0 --extreme",
+    "compress:terrain": "python3 scripts/compress-terrain.py",
+    "check": "node --check dist/threat-risk-layer.js && node --check dist/app.js && node --check dist/data.js && node --check dist/place-search.js && node --check dist/cesium-map.js && node --check dist/romania-map.js && node --check dist/romania-terrain.js && node --check dist/map-config.js && node --check dist/civil-traffic.js && node --check dist/civil-activity.js && node --check dist/civil-overlays.js && node --check dist/monitor-overlays.js && node --check dist/civil-activity-model.js && node --check scripts/prepare-civil-activity.mjs && node --check server.mjs && node --check server-traffic.mjs && node --check server-auth.mjs && node --check server-backend.mjs && node --check scripts/mock-backend.mjs && node --check dist/backend-contract.js && node --check dist/backend-feed.js && node --check dist/monitor-feed-layer.js && node --test tests/*.test.mjs && python3 -m unittest discover -s tests -p \"*_test.py\""
+  },
+  "dependencies": {
+    "cesium": "1.146.0",
+    "brotli-dec-wasm": "2.3.2",
+    "xz-decompress": "0.2.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

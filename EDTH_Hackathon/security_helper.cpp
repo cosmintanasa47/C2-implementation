@@ -1,9 +1,8 @@
 #include "security_helper.h"
 
 #include <QByteArray>
-#include <QCryptographicHash>
-#include <QMessageAuthenticationCode>
 #include <QRandomGenerator>
+#include <openssl/evp.h>
 
 namespace {
 
@@ -25,50 +24,17 @@ bool valid_hex(const std::string &value, std::size_t length)
     return true;
 }
 
-QByteArray hmac_sha256(
-    const QByteArray &key,
-    const QByteArray &data)
-{
-    return QMessageAuthenticationCode::hash(
-        data,
-        key,
-        QCryptographicHash::Sha256
-        );
-}
-
 // Produce 32 de octeti: un singur bloc PBKDF2-HMAC-SHA256.
 QByteArray derive_hash(
     const QByteArray &password,
     const QByteArray &salt,
     int iterations)
 {
-    // Indexul blocului 1, codificat pe 4 octeti big-endian.
-    QByteArray first_input = salt;
-    first_input.append('\0');
-    first_input.append('\0');
-    first_input.append('\0');
-    first_input.append('\x01');
-
-    QByteArray current = hmac_sha256(password, first_input);
-
-    if (current.size() != 32)
-        return {};
-
-    QByteArray result = current;
-
-    for (int iteration = 1; iteration < iterations; ++iteration) {
-        current = hmac_sha256(password, current);
-
-        if (current.size() != 32)
-            return {};
-
-        for (int i = 0; i < 32; ++i) {
-            result[i] = static_cast<char>(
-                static_cast<unsigned char>(result.at(i)) ^
-                static_cast<unsigned char>(current.at(i))
-                );
-        }
-    }
+    QByteArray result(32, '\0');
+    if (PKCS5_PBKDF2_HMAC(password.constData(), password.size(),
+                         reinterpret_cast<const unsigned char *>(salt.constData()), salt.size(),
+                         iterations, EVP_sha256(), result.size(),
+                         reinterpret_cast<unsigned char *>(result.data())) != 1) return {};
 
     return result;
 }

@@ -6,6 +6,9 @@
 #include <QTcpSocket>
 #include <QHostAddress>
 #include <QSet>
+#include <QHash>
+#include <QThread>
+#include "backend_worker.h"
 
 #include "json_communication.h"
 
@@ -51,12 +54,21 @@ public:
 
 signals:
     void client_connected(QTcpSocket *client);
+    void request_received(const QString &connection, const QByteArray &line);
+    void connection_closed(const QString &connection);
 
 private:
     explicit servermanager(QObject *parent = nullptr);
-    ~servermanager() override = default;
+    ~servermanager() override;
+    QThread worker_thread;
+    backend_worker *worker = nullptr;
+    QHash<QTcpSocket *,QByteArray> buffers;
+    QHash<QTcpSocket *,QString> connection_ids;
+    QHash<QString,QTcpSocket *> connection_sockets;
+    QHash<QTcpSocket *,int> queued;
     QTcpServer server;
     QSet<QTcpSocket *> clients;
+    QSet<QTcpSocket *> authenticated_clients;
 
     void accept_connections();
 };

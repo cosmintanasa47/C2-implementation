@@ -3,16 +3,39 @@
 
 #include <QByteArray>
 #include <QDebug>
+#include <QUuid>
 
 servermanager::servermanager(QObject *parent)
     : QObject(parent)
 {
+    worker = new backend_worker;
+    worker->moveToThread(&worker_thread);
+    connect(&worker_thread,&QThread::finished,worker,&QObject::deleteLater);
+    connect(this,&servermanager::request_received,worker,&backend_worker::process,Qt::QueuedConnection);
+    connect(this,&servermanager::connection_closed,worker,&backend_worker::remove,Qt::QueuedConnection);
+    connect(worker,&backend_worker::reply,this,[this](const QString &id,const QByteArray &reply) {
+        auto *client=connection_sockets.value(id,nullptr);
+        if(!client) return;
+        queued[client]=qMax(0,queued.value(client)-1);
+        if(client->bytesToWrite()>4*1024*1024) {client->abort();return;}
+        try {
+            const auto data=communication::json::parse(reply.toStdString());
+            if(data.value("type",std::string())=="login_response" && data.value("accepted",false)) authenticated_clients.insert(client);
+            if(data.value("type",std::string())=="logout_response") authenticated_clients.remove(client);
+        } catch(const std::exception &) {}
+        client->write(reply);
+    });
+    worker_thread.start();
     connect(
         &server,
         &QTcpServer::newConnection,
         this,
         &servermanager::accept_connections
         );
+}
+servermanager::~servermanager() {
+    stop_server();
+
 }
 bool servermanager::start_server(
     const QHostAddress &address,
@@ -40,8 +63,11 @@ void servermanager::stop_server()
     // Copie deoarece disconnect poate modifica setul.
     const QSet<QTcpSocket *> connected_clients = clients;
 
-    for (QTcpSocket *client : connected_clients)
-        client->disconnectFromHost();
+    for (QTcpSocket *client : connected_clients) client->abort();
+    if(worker_thread.isRunning()) {
+        QMetaObject::invokeMethod(worker,"shutdown",Qt::BlockingQueuedConnection);
+        worker_thread.quit();worker_thread.wait();
+    }
 }
 
 quint16 servermanager::port() const
@@ -58,7 +84,21 @@ void servermanager::accept_connections()
             continue;
 
         // Socket-ul va fi distrus impreuna cu managerul.
+        if (clients.size() >= 32) {client->abort();client->deleteLater();continue;}
         client->setParent(this);
+        const QString id=QUuid::createUuid().toString(QUuid::WithoutBraces);
+        connection_ids.insert(client,id);connection_sockets.insert(id,client);
+        connect(client,&QTcpSocket::readyRead,this,[this,client,id]() {
+            QByteArray &buffer=buffers[client];buffer+=client->readAll();
+            if(buffer.size()>64*1024) {client->abort();return;}
+            int newline;
+            while((newline=buffer.indexOf('\n'))>=0) {
+                const QByteArray line=buffer.left(newline).trimmed();buffer.remove(0,newline+1);
+                if(line.isEmpty()) continue;
+                if(queued.value(client)>=8) {client->abort();return;}
+                queued[client]++;emit request_received(id,line);
+            }
+        });
         clients.insert(client);
 
         connect(
@@ -66,6 +106,10 @@ void servermanager::accept_connections()
             &QTcpSocket::disconnected,
             this,
             [this, client]() {
+                const QString id=connection_ids.take(client);
+                connection_sockets.remove(id);buffers.remove(client);queued.remove(client);
+                emit connection_closed(id);
+                authenticated_clients.remove(client);
                 clients.remove(client);
                 client->deleteLater();
             }
@@ -82,7 +126,7 @@ bool servermanager::send_json(
     QTcpSocket *client,
     const communication::json &message)
 {
-    if (!client || !clients.contains(client))
+    if (!client || !clients.contains(client) || !authenticated_clients.contains(client))
         return false;
 
     if (client->state() != QAbstractSocket::ConnectedState)

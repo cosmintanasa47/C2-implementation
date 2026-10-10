@@ -20,6 +20,10 @@ public:
     database_manager(database_manager &&) = delete;
     database_manager &operator=(database_manager &&) = delete;
 
+    bool connect_from_environment();
+    bool get_snapshot(QVariantMap &snapshot);
+    bool evaluate_threat(qint64 id, const QString &status, const QString &reason, int user_id);
+
     // Conexiune
     bool connect_database(
         const QString &server,

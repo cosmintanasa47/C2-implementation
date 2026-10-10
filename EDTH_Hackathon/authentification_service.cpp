@@ -40,7 +40,8 @@ bool authentification_service::login(
     QVariantMap user;
 
     if (!database.get_user(username, user)) {
-        error_message = "Autentificarea nu a reusit.";
+        error_message = database.last_error() == "user_not_found"
+            ? "Autentificarea nu a reusit." : "Citirea utilizatorului a esuat: " + database.last_error();
         return false;
     }
 
@@ -63,51 +64,17 @@ bool authentification_service::login(
     bool has_engager = false;
     bool has_admin = false;
 
-    // Scope-ul elibereaza query-ul SELECT inainte de UPDATE.
-    {
-        QSqlQuery query;
-
-        const QString sql =
-            "SELECT "
-            "CASE WHEN EXISTS ("
-            "  SELECT 1 FROM User_Viewer WHERE user_id = u.id"
-            ") THEN 1 ELSE 0 END AS is_viewer, "
-
-            "CASE WHEN EXISTS ("
-            "  SELECT 1 FROM User_Engager WHERE user_id = u.id"
-            ") THEN 1 ELSE 0 END AS is_engager, "
-
-            "CASE WHEN EXISTS ("
-            "  SELECT 1 FROM User_Admin WHERE user_id = u.id"
-            ") THEN 1 ELSE 0 END AS is_admin "
-
-            "FROM Users u WHERE u.id = :id";
-
-        if (!database.select_query(
-                sql, query, {{":id", id}})) {
-            error_message = "Citirea rolurilor a esuat.";
-            return false;
-        }
-
-        if (!query.next()) {
-            error_message = "Utilizatorul nu mai exista.";
-            return false;
-        }
-
-        has_viewer = query.value(0).toBool();
-        has_engager = query.value(1).toBool();
-        has_admin = query.value(2).toBool();
+    QVariantMap roles;
+    if (!database.get_user_roles(id, roles)) {
+        error_message = "Citirea rolurilor a esuat.";
+        return false;
     }
+    has_viewer = roles.value("viewer").toBool();
+    has_engager = roles.value("engager").toBool();
+    has_admin = roles.value("admin").toBool();
 
     if (!has_viewer && !has_engager && !has_admin) {
         error_message = "Utilizatorul nu are un rol atribuit.";
-        return false;
-    }
-
-    if (!database.execute_query(
-            "UPDATE Users SET is_online = 1 WHERE id = :id",
-            {{":id", id}})) {
-        error_message = "Actualizarea starii utilizatorului a esuat.";
         return false;
     }
 
@@ -121,13 +88,13 @@ bool authentification_service::login(
     return true;
 }
 
-bool authentification_service::logout()
+bool authentification_service::logout(bool mark_offline)
 {
     error_message.clear();
 
     bool success = true;
 
-    if (is_authenticated()) {
+    if (is_authenticated() && mark_offline) {
         success = database.execute_query(
             "UPDATE Users SET is_online = 0 WHERE id = :id",
             {{":id", current_user_id}}
