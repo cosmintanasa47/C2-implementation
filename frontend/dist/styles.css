@@ -80,3 +80,40 @@ dialog input[type=text],dialog input[type=password]{width:100%;padding:10px 11px
 .launch-summary{display:grid;gap:10px;margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#11181e}
 .launch-summary dt{font-size:9px;letter-spacing:1px;color:var(--soft);text-transform:uppercase}
 .launch-summary dd{margin:4px 0 0;font-size:14px;font-weight:600}
+
+/* Mod prezentare: harta ocupa intreaga pagina */
+#workspace.map-expanded .map-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+}
+
+#workspace.map-expanded .map-canvas {
+    flex: 1;
+    min-height: 0;
+}
+
+/* Pastreaza comenzile hartii vizibile */
+#workspace.map-expanded .map-toolbar,
+#workspace.map-expanded .place-toolbar,
+#workspace.map-expanded .map-legend,
+#workspace.map-expanded .activity-strip {
+    flex-shrink: 0;
+}
+
+/* Notificarile raman vizibile peste harta extinsa. */
+.toast {
+    z-index: 1100;
+}
+
+/* Opreste derularea paginii din spatele hartii. */
+body:has(#workspace.map-expanded) {
+    overflow: hidden;
+}

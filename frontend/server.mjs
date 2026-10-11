@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve, extname, sep } from 'node:path';
 import { createTrafficRelay } from './server-traffic.mjs';
 import { createAuthBridge } from './server-auth.mjs';
+import { handlePresentation } from './server-presentation.mjs';
 
 const root = fileURLToPath(new URL('./dist/', import.meta.url));
 const port = Number(process.env.PORT || 4173);
@@ -31,6 +32,7 @@ const httpServer = createServer(async (request, response) => {
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   if (!allowedHosts.has(request.headers.host)) { response.writeHead(403).end("Forbidden"); return; }
   try {
+    if (handlePresentation(request, response)) return;
     if (await backendBridge.handle(request, response)) return;
     if (await trafficRelay(request, response)) return;
     const path = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
